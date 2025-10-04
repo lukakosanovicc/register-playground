@@ -1,5 +1,5 @@
 # 📖 Description<br>
-This project is a console-based C program made in CodeBlocks that allows users to play around with 5 registers, each holding one byte. It includes functionality to change the contents of a register, read the registers as numbers and load and save their configuration.
+This project is a console-based C program made in CodeBlocks that allows users to play around with 5 registers, each holding one byte. It includes functionality to change the contents of a register, read the registers as numbers and loading and saving configurations.
 
 # 🚀 Installation & Deployment<br>
 ```bash
