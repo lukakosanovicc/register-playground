@@ -12,6 +12,10 @@ TODO:
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
+void set_console_title(const char *title) {
+    SetConsoleTitleA(title);
+}
+
 void ClearScreen()
 {
     HANDLE hStdOut;
@@ -34,6 +38,11 @@ void ClearScreen()
 #else
 #include <unistd.h>
 #include <term.h>
+
+void set_console_title(const char *title) {
+    printf("\033]0;%s\007", title);
+    fflush(stdout);
+}
 
 void ClearScreen()
 {
@@ -179,6 +188,8 @@ bool loadConfig()
 }
 
 int main() {
+    set_console_title("Memory Playground");
+
     unsigned int *ar[5] = {reg1, reg2, reg3, reg4, reg5};
     bool *wp[5] = {&WP1, &WP2, &WP3, &WP4, &WP5};
 
