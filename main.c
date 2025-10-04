@@ -4,10 +4,51 @@
 /*
 TODO:
 - CLEANUP!!!
-- view write protect status before toggle
 - also saving WP status and clearing it when clearing Config.dat
 - convert registers to numbers (1 MSB means negative)
 */
+
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+
+void ClearScreen()
+{
+    HANDLE hStdOut;
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+    DWORD count;
+    DWORD cellCount;
+    COORD homeCoords = { 0, 0 };
+
+    hStdOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (hStdOut == INVALID_HANDLE_VALUE) return;
+
+    if (!GetConsoleScreenBufferInfo(hStdOut, &csbi)) return;
+    cellCount = csbi.dwSize.X * csbi.dwSize.Y;
+
+    if (!FillConsoleOutputCharacter(hStdOut, (TCHAR)' ', cellCount, homeCoords, &count)) return;
+    if (!FillConsoleOutputAttribute(hStdOut, csbi.wAttributes, cellCount, homeCoords, &count)) return;
+
+    SetConsoleCursorPosition(hStdOut, homeCoords);
+}
+#else
+#include <unistd.h>
+#include <term.h>
+
+void ClearScreen()
+{
+    if (!cur_term)
+    {
+        int result;
+        setupterm(NULL, STDOUT_FILENO, &result);
+        if (result <= 0) return;
+    }
+
+    putp(tigetstr("clear"));
+}
+#endif
+
+/*-------------------------------------------------*/
 
 unsigned int reg1[8] = {0};
 bool WP1 = false;
@@ -35,22 +76,27 @@ void R() {
     for (unsigned int i = 0; i < 8; ++i) {
         printf("%d", reg1[i]);
     }
+    printf("\tWP = %d", WP1);
     printf("\n\t");
     for (unsigned int i = 0; i < 8; ++i) {
         printf("%d", reg2[i]);
     }
+    printf("\tWP = %d", WP2);
     printf("\n\t");
     for (unsigned int i = 0; i < 8; ++i) {
         printf("%d", reg3[i]);
     }
+    printf("\tWP = %d", WP3);
     printf("\n\t");
     for (unsigned int i = 0; i < 8; ++i) {
         printf("%d", reg4[i]);
     }
+    printf("\tWP = %d", WP4);
     printf("\n\t");
     for (unsigned int i = 0; i < 8; ++i) {
         printf("%d", reg5[i]);
     }
+    printf("\tWP = %d", WP5);
     printf("\n\n");
 }
 
@@ -79,7 +125,7 @@ bool W(unsigned int *pok, bool *WP) {
         pok[i] = temp[i];
     }
 
-    return true;
+    return false;
 }
 
 void toggleWP(unsigned int regIndex) {
@@ -95,7 +141,7 @@ void toggleWP(unsigned int regIndex) {
     }
 
     *wp = !(*wp);
-    printf("Write protection for register %u is now %s.\n", regIndex, *wp ? "enabled" : "disabled");
+    printf("\nWrite protection for register %u is now %s.\n", regIndex+1, *wp ? "enabled" : "disabled");
 }
 
 bool saveConfig()
@@ -143,10 +189,15 @@ int main() {
         R();
 
         printf("Welcome to Memory Playground! Options:\n");
-        printf("1. Modify a register\n2. Toggle write protect for a register\n3. Clear config file\n4. Save to a config file and exit\n\n>>> ");
+        printf("0. Clear console\n1. Modify a register\n2. Toggle write protect for a register\n3. Clear config file\n4. Save to a config file and exit\n\n>>> ");
         scanf("%u", &choice);
 
         switch(choice) {
+            case 0:
+            {
+                ClearScreen();
+                break;
+            }
             case 1:
             {
                 unsigned int regChoice;
@@ -156,7 +207,7 @@ int main() {
                 if (regChoice == 0) break;
 
                 if (regChoice >= 1 && regChoice <= 5) {
-                    if (W(ar[regChoice-1], wp[regChoice-1])) {
+                    if (!W(ar[regChoice-1], wp[regChoice-1])) {
                         printf("Register updated successfully.\n");
                     } else {
                         printf("Failed to update register.\n");
@@ -204,7 +255,7 @@ int main() {
             }
         }
 
-    } while (choice >= 1 && choice <= 4);
+    } while (choice >= 0 && choice <= 4);
 
     return 0;
 }
