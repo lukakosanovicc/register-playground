@@ -1,63 +1,6 @@
 #include <stdio.h>
 #include <stdbool.h>
-
-/*
-TODO:
-- CLEANUP!!!
-- also saving WP status and clearing it when clearing Config.dat
-- convert registers to numbers (1 MSB means negative)
-*/
-
-#ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-
-void set_console_title(const char *title) {
-    SetConsoleTitleA(title);
-}
-
-void ClearScreen()
-{
-    HANDLE hStdOut;
-    CONSOLE_SCREEN_BUFFER_INFO csbi;
-    DWORD count;
-    DWORD cellCount;
-    COORD homeCoords = { 0, 0 };
-
-    hStdOut = GetStdHandle(STD_OUTPUT_HANDLE);
-    if (hStdOut == INVALID_HANDLE_VALUE) return;
-
-    if (!GetConsoleScreenBufferInfo(hStdOut, &csbi)) return;
-    cellCount = csbi.dwSize.X * csbi.dwSize.Y;
-
-    if (!FillConsoleOutputCharacter(hStdOut, (TCHAR)' ', cellCount, homeCoords, &count)) return;
-    if (!FillConsoleOutputAttribute(hStdOut, csbi.wAttributes, cellCount, homeCoords, &count)) return;
-
-    SetConsoleCursorPosition(hStdOut, homeCoords);
-}
-#else
-#include <unistd.h>
-#include <term.h>
-
-void set_console_title(const char *title) {
-    printf("\033]0;%s\007", title);
-    fflush(stdout);
-}
-
-void ClearScreen()
-{
-    if (!cur_term)
-    {
-        int result;
-        setupterm(NULL, STDOUT_FILENO, &result);
-        if (result <= 0) return;
-    }
-
-    putp(tigetstr("clear"));
-}
-#endif
-
-/*-------------------------------------------------*/
+#include "utilities.h"
 
 unsigned int reg1[8] = {0};
 bool WP1 = false;
@@ -74,12 +17,8 @@ bool WP4 = false;
 unsigned int reg5[8] = {0};
 bool WP5 = false;
 
-void clearInputBuffer() {
-    int c;
-    while ((c = getchar()) != '\n' && c != EOF);
-}
-
-void R() {
+void read() {
+    printf("----------------------------------------------------------------------");
     printf("\nunsigned int *ar[5] = {reg1, reg2, reg3, reg4, reg5};");
     printf("\n\n\t");
     for (unsigned int i = 0; i < 8; ++i) {
@@ -109,9 +48,73 @@ void R() {
     printf("\n\n");
 }
 
-bool W(unsigned int *pok, bool *WP) {
+void read_as_numbers()
+{
+    int i, number = 0;
+    if (reg1[0] == 1) {
+        for (i = 6; i >= 0; --i) {
+            number += reg1[i] == true ? (1 << i) : 0; // (1 << i) [works only on positive numbers] == 2^i faster than pow(2, i) which returns double
+        }
+        number -= (1 << 7); // -= 128 to bring it into negative
+    } else {
+        for (i = 6; i >= 0; --i) {
+            number += reg1[i] == true ? (1 << i) : 0;
+        }
+    }
+    printf("\nThe value in reg1 is %d", number);
+    number = 0;
+    if (reg2[0] == 1) {
+        for (i = 6; i >= 0; --i) {
+            number += reg2[i] == true ? (1 << i) : 0;
+        }
+        number -= (1 << 7);
+    } else {
+        for (i = 6; i >= 0; --i) {
+            number += reg2[i] == true ? (1 << i) : 0;
+        }
+    }
+    printf("\nThe value in reg2 is %d", number);
+    number = 0;
+    if (reg3[0] == 1) {
+        for (i = 6; i >= 0; --i) {
+            number += reg3[i] == true ? (1 << i) : 0;
+        }
+        number -= (1 << 7);
+    } else {
+        for (i = 6; i >= 0; --i) {
+            number += reg3[i] == true ? (1 << i) : 0;
+        }
+    }
+    printf("\nThe value in reg3 is %d", number);
+    number = 0;
+    if (reg4[0] == 1) {
+        for (i = 6; i >= 0; --i) {
+            number += reg4[i] == true ? (1 << i) : 0;
+        }
+        number -= (1 << 7);
+    } else {
+        for (i = 6; i >= 0; --i) {
+            number += reg4[i] == true ? (1 << i) : 0;
+        }
+    }
+    printf("\nThe value in reg4 is %d", number);
+    number = 0;
+    if (reg5[0] == 1) {
+        for (i = 6; i >= 0; --i) {
+            number += reg5[i] == true ? (1 << i) : 0;
+        }
+        number -= (1 << 7);
+    } else {
+        for (i = 6; i >= 0; --i) {
+            number += reg5[i] == true ? (1 << i) : 0;
+        }
+    }
+    printf("\nThe value in reg5 is %d\n\n", number);
+}
+
+bool write(unsigned int *pok, bool *WP) {
     if (*WP) {
-        printf("Write protection is enabled for this register. Modifications are not allowed.\n");
+        printf("\nWrite protection is enabled for this register. Modifications are not allowed.\n");
         return true;
     }
 
@@ -121,14 +124,14 @@ bool W(unsigned int *pok, bool *WP) {
     if (scanf("%u %u %u %u %u %u %u %u",
               &temp[0], &temp[1], &temp[2], &temp[3],
               &temp[4], &temp[5], &temp[6], &temp[7]) != 8) {
-        printf("Invalid input.\n");
-        clearInputBuffer();
+        printf("\nInvalid input.\n");
+        clear_input_buffer();
         return true;
     }
 
     for (int i = 0; i < 8; ++i) {
         if (temp[i] != 0 && temp[i] != 1) {
-            printf("Invalid input: Only 0 or 1 allowed.\n");
+            printf("\nInvalid input: Only 0 or 1 allowed.\n");
             return true;
         }
         pok[i] = temp[i];
@@ -137,10 +140,10 @@ bool W(unsigned int *pok, bool *WP) {
     return false;
 }
 
-void toggleWP(unsigned int regIndex) {
+void toggle_wp(unsigned int reg_index) {
     bool* wp = NULL;
 
-    switch (regIndex) {
+    switch (reg_index) {
         case 0: wp = &WP1; break;
         case 1: wp = &WP2; break;
         case 2: wp = &WP3; break;
@@ -150,15 +153,15 @@ void toggleWP(unsigned int regIndex) {
     }
 
     *wp = !(*wp);
-    printf("\nWrite protection for register %u is now %s.\n", regIndex+1, *wp ? "enabled" : "disabled");
+    printf("\nWrite protection for register %u is now %s.\n", reg_index+1, *wp ? "enabled" : "disabled");
 }
 
-bool saveConfig()
+bool save_config()
 {
-    FILE *f = fopen("Config.dat", "wb");
+    FILE *f = fopen("config.dat", "wb");
     if (!f)
     {
-        printf("Error while saving the config.\n");
+        printf("\nError while saving the config.\n");
         return true;
     }
 
@@ -168,13 +171,19 @@ bool saveConfig()
     fwrite(reg4, sizeof(reg4), 1, f);
     fwrite(reg5, sizeof(reg5), 1, f);
 
+    fwrite(&WP1, sizeof(WP1), 1, f);
+    fwrite(&WP2, sizeof(WP2), 1, f);
+    fwrite(&WP3, sizeof(WP3), 1, f);
+    fwrite(&WP4, sizeof(WP4), 1, f);
+    fwrite(&WP5, sizeof(WP5), 1, f);
+
     fclose(f);
     return false;
 }
 
-bool loadConfig()
+bool load_config()
 {
-    FILE *f = fopen("Config.dat", "rb");
+    FILE *f = fopen("config.dat", "rb");
     if (!f) return true;
 
     if (fread(&reg1, sizeof(reg1), 1, f) != 1) return true;
@@ -183,90 +192,101 @@ bool loadConfig()
     if (fread(&reg4, sizeof(reg4), 1, f) != 1) return true;
     if (fread(&reg5, sizeof(reg5), 1, f) != 1) return true;
 
+    if (fread(&WP1, sizeof(WP1), 1, f) != 1) return true;
+    if (fread(&WP2, sizeof(WP2), 1, f) != 1) return true;
+    if (fread(&WP3, sizeof(WP3), 1, f) != 1) return true;
+    if (fread(&WP4, sizeof(WP4), 1, f) != 1) return true;
+    if (fread(&WP5, sizeof(WP5), 1, f) != 1) return true;
+
     fclose(f);
     return false;
 }
 
 int main() {
-    set_console_title("Memory Playground");
+    set_console_title("Register Playground");
 
     unsigned int *ar[5] = {reg1, reg2, reg3, reg4, reg5};
     bool *wp[5] = {&WP1, &WP2, &WP3, &WP4, &WP5};
 
-    loadConfig();
+    load_config();
 
     unsigned int choice;
     do {
-        R();
+        read();
 
-        printf("Welcome to Memory Playground! Options:\n");
-        printf("0. Clear console\n1. Modify a register\n2. Toggle write protect for a register\n3. Clear config file\n4. Save to a config file and exit\n\n>>> ");
+        printf("Welcome to Register Playground! Options:\n");
+        printf("0. Clear console\n1. Modify a register\n2. Toggle write protect for a register\n3. Read as numbers\n4. Clear config file\n5. Save to a config file and exit\n\n>>> ");
         scanf("%u", &choice);
 
         switch(choice) {
             case 0:
             {
-                ClearScreen();
+                clear_screen();
                 break;
             }
             case 1:
             {
-                unsigned int regChoice;
+                unsigned int reg_choice;
                 printf("-> Which register (1-5) do you want to modify (0 to go back)? ");
-                scanf("%u", &regChoice);
+                scanf("%u", &reg_choice);
 
-                if (regChoice == 0) break;
+                if (reg_choice == 0) break;
 
-                if (regChoice >= 1 && regChoice <= 5) {
-                    if (!W(ar[regChoice-1], wp[regChoice-1])) {
-                        printf("Register updated successfully.\n");
+                if (reg_choice >= 1 && reg_choice <= 5) {
+                    if (!write(ar[reg_choice-1], wp[reg_choice-1])) {
+                        printf("\nRegister updated successfully.\n");
                     } else {
-                        printf("Failed to update register.\n");
+                        printf("\nFailed to update register.\n");
                     }
                 } else {
-                    printf("Invalid register number.\n");
+                    printf("\nInvalid register number.\n");
                 }
                 break;
             }
             case 2:
             {
-                unsigned int regToToggle;
+                unsigned int reg_to_toggle;
                 printf("-> Enter the register number (1-5) to toggle write protection (0 to go back): ");
-                scanf("%u", &regToToggle);
+                scanf("%u", &reg_to_toggle);
 
-                if (regToToggle == 0) break;
+                if (reg_to_toggle == 0) break;
 
-                if (regToToggle >= 1 && regToToggle <= 5) {
-                    toggleWP(regToToggle-1);
+                if (reg_to_toggle >= 1 && reg_to_toggle <= 5) {
+                    toggle_wp(reg_to_toggle-1);
                 } else {
-                    printf("Invalid register number.\n");
+                    printf("\nInvalid register number.\n");
                 }
                 break;
             }
             case 3:
             {
-                FILE *f = fopen("Config.dat", "wb");
-                    if (!f)
-                {
-                    printf("Error while clearing the config.\n");
-                    break;
-                }
-                fclose(f);
+                read_as_numbers();
                 break;
             }
             case 4:
             {
-                if (!saveConfig()) {
-                    printf("Successfully saved. Exiting...\n");
+                FILE *f = fopen("config.dat", "wb");
+                if (!f)
+                {
+                    printf("\nError while clearing the config.\n");
+                    break;
+                }
+                fclose(f);
+                return;
+            }
+            case 5:
+            {
+                if (!save_config()) {
+                    printf("\nSuccessfully saved. Exiting...\n");
                     return 0;
                 } else {
-                    printf("Failed to save config.\n");
+                    printf("\nFailed to save config.\n");
                     break;
                 }
             }
         }
 
-    } while (choice >= 0 && choice <= 4);
+    } while (choice >= 0 && choice <= 5);
 
     return 0;
 }

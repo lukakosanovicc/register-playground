@@ -1,0 +1,15 @@
+# depslib dependency file v1.0
+1759604084 source:e:\gitportable\register-playground\main.c
+	<stdio.h>
+	<stdbool.h>
+	"utilities.h"
+
+1759594618 e:\gitportable\register-playground\utilities.h
+
+1759594590 source:e:\gitportable\register-playground\utilities.c
+	<windows.h>
+	<stdio.h>
+	<stdio.h>
+	<unistd.h>
+	<term.h>
+
