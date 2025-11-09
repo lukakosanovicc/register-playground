@@ -1,5 +1,7 @@
 # 📖 Description<br>
-<img alt="register" src="https://github.com/user-attachments/assets/ca83fb16-2c10-4dcb-a464-07b6d66867a2" /><br>
+<p align="center">
+  <img style="text-align: center;" alt="register" src="https://github.com/user-attachments/assets/ca83fb16-2c10-4dcb-a464-07b6d66867a2" /><br>
+</p>
 This project is a console-based C program made in CodeBlocks that allows users to play around with 5 registers, each holding one byte. It includes functionality to change the contents of a register, read the registers as numbers and loading and saving configurations.
 
 # 🚀 Installation & Deployment<br>
